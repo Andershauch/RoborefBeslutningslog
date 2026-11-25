@@ -1,6 +1,8 @@
 // Fælles typer og hjælpefunktioner for API-handlerne.
 // Filen køres direkte af Node (type stripping): brug kun `import type` til typer,
 // og undgå enums og parameter properties.
+import {can} from '../../shared/roles.ts';
+import type {Permission, Role} from '../../shared/roles.ts';
 
 export type Row = Record<string, string | number | null>;
 
@@ -23,11 +25,22 @@ export interface Actor {
   userId: string;
   displayName: string;
   email: string;
+  /** Roller, der afgør hvad brugeren må (se src/shared/roles.ts). */
+  roles: Role[];
+  /** Sand, når identiteten er bekræftet af et login (fx Entra ID). Lokalt er den falsk. */
+  identityVerified: boolean;
+}
+
+/** Organisatoriske regler, som kan slås til i opsætningen. */
+export interface Policy {
+  /** Den, der uploadede en version, må ikke selv godkende den. */
+  fourEyes: boolean;
 }
 
 export interface HandlerContext {
   db: Database;
   user: Actor;
+  policy?: Policy;
 }
 
 /** Fejl, der skal vises for brugeren med en bestemt HTTP-status. */
@@ -38,6 +51,13 @@ export class RequestError extends Error {
     super(message);
     this.status = status;
     this.code = code;
+  }
+}
+
+/** Kræver en rettighed. Serveren håndhæver altid rettigheder; brugerfladen skjuler blot knapper. */
+export function requirePermission(user: Actor, permission: Permission): void {
+  if (!can(user.roles, permission)) {
+    throw new RequestError('Du har ikke rettighed til denne handling.', 403);
   }
 }
 
@@ -81,13 +101,13 @@ export async function sha256Hex(text: string): Promise<string> {
 }
 
 const EVENT_COLUMNS =
-  'id,prompt_id,version_id,action,occurred_at,actor_id,actor_name,actor_email,detail';
-export const INSERT_EVENT = `INSERT INTO events (${EVENT_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?)`;
+  'id,prompt_id,version_id,action,occurred_at,actor_id,actor_name,actor_email,detail,identity_verified';
+export const INSERT_EVENT = `INSERT INTO events (${EVENT_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?)`;
 /** Indsætter kun hændelsen, hvis betingelsen (en WHERE-klausul) er opfyldt. Gør skrivninger atomiske. */
 export const insertEventWhere = (condition: string) =>
-  `INSERT INTO events (${EVENT_COLUMNS}) SELECT ?,?,?,?,?,?,?,?,? WHERE ${condition}`;
+  `INSERT INTO events (${EVENT_COLUMNS}) SELECT ?,?,?,?,?,?,?,?,?,? WHERE ${condition}`;
 
-/** De ni første værdier i en hændelse, i samme rækkefølge som EVENT_COLUMNS. */
+/** De ti første værdier i en hændelse, i samme rækkefølge som EVENT_COLUMNS. */
 export function eventValues(
   actor: Actor,
   event: {promptId: string; versionId: string; action: string; now: string; detail: unknown},
@@ -102,5 +122,6 @@ export function eventValues(
     actor.displayName,
     actor.email,
     JSON.stringify(event.detail),
+    actor.identityVerified ? 1 : 0,
   ];
 }

@@ -377,6 +377,7 @@ test('the configured user name is recorded on actions and shown to the browser, 
       userId: 'local-user',
       displayName: 'Mette </script> Hansen',
       email: 'lokal@denne-computer.invalid',
+      roles: ['admin'],
       identityVerified: false,
     },
   });

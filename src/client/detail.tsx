@@ -32,7 +32,11 @@ export default function Detail({
   onRefresh,
   onNotice,
   onCheck,
+  canWrite,
+  canDecide,
 }: {
+  canWrite: boolean;
+  canDecide: boolean;
   onCheck?: () => void;
   prompt: Prompt;
   data: Data;
@@ -221,15 +225,17 @@ export default function Detail({
               Tjek for ændringer
             </button>
           )}{' '}
-          <button
-            className="button secondary"
-            title="Arkivering skjuler prompten her og bevarer historikken. Den ændrer ikke mødetypen i Roboref."
-            disabled={busy}
-            onClick={() => void toggleArchive()}
-          >
-            {isArchived(data, p.id) ? 'Gendan fra arkiv' : 'Arkivér prompt'}
-          </button>{' '}
-          {!isArchived(data, p.id) && (
+          {canWrite && (
+            <button
+              className="button secondary"
+              title="Arkivering skjuler prompten her og bevarer historikken. Den ændrer ikke mødetypen i Roboref."
+              disabled={busy}
+              onClick={() => void toggleArchive()}
+            >
+              {isArchived(data, p.id) ? 'Gendan fra arkiv' : 'Arkivér prompt'}
+            </button>
+          )}{' '}
+          {canWrite && !isArchived(data, p.id) && (
             <button className="button primary" onClick={onUpload}>
               <Upload size={17} />
               Upload ny version
@@ -425,7 +431,7 @@ export default function Detail({
                         <strong>Afventer gennemgang og godkendelse</strong>
                         <p>Denne version er endnu ikke registreret som gældende.</p>
                       </div>
-                      {!isArchived(data, p.id) && (
+                      {canDecide && !isArchived(data, p.id) && (
                         <button
                           className="button secondary small"
                           onClick={() => {
@@ -437,21 +443,23 @@ export default function Detail({
                           Afvis
                         </button>
                       )}
-                      {!isArchived(data, p.id) && (!active || version.number > active.number) && (
-                        <button
-                          className="button primary small"
-                          onClick={() => {
-                            setEffective(today());
-                            setUnknown(false);
-                            setConfirmation('');
-                            setError('');
-                            setApproval(true);
-                          }}
-                        >
-                          Godkend
-                          <ChevronRight size={15} />
-                        </button>
-                      )}
+                      {canDecide &&
+                        !isArchived(data, p.id) &&
+                        (!active || version.number > active.number) && (
+                          <button
+                            className="button primary small"
+                            onClick={() => {
+                              setEffective(today());
+                              setUnknown(false);
+                              setConfirmation('');
+                              setError('');
+                              setApproval(true);
+                            }}
+                          >
+                            Godkend
+                            <ChevronRight size={15} />
+                          </button>
+                        )}
                     </>
                   )}
                 </div>

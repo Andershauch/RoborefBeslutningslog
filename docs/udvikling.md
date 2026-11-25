@@ -44,6 +44,7 @@ Kør `npm test && npm run typecheck && npm run lint && npm run format:check` lok
 - **Ændr brugerfladen:** ret filer i `src/client/`, kør `npm run build:local-client`, commit både kilde og `public/`. Browsertesten (`tests/client-smoke.test.mjs`) indlæser den byggede klient.
 - **Ændr API'et:** ret en handler i `src/server/handlers/`. Ny forretningsregel kræver en test i `tests/`, der bruger en rigtig SQLite-database. Bump `API_VERSION` i `src/server/app.mjs`, hvis klient og server ikke længere passer til en ældre kørende udgave.
 - **Ændr databasen:** tilføj en **ny** fil i `migrations/` med næste løbenummer (`0001_navn.sql`). Ret aldrig en eksisterende. Test både en frisk database og opgradering af en med data (`tests/storage.test.mjs` viser mønstret).
+- **Ændr login:** flowet i `src/server/auth/oidc.mjs` testes i `tests/oidc.test.mjs` mod en simuleret Entra ID med rigtige signerede tokens (også forkerte, forfalskede og uden to-faktor). Alle angrebstests skal fortsat bestå. Rettigheder testes i `tests/roles.test.mjs`.
 - **Tilføj en indstilling:** udvid `src/server/config.mjs` med validering og test, tilføj den til `.env.example` og [Konfiguration](konfiguration.md).
 - **Opdater afhængigheder:** Dependabot sender ugentlige PR'er. `react`, `react-dom` og typerne skal opdateres sammen (klienten pakker dem), og hver ændring skal have grøn CI. Store versionshop af `typescript`, `eslint` og `@types/node` kræver en bevidst beslutning og er slået fra.
 

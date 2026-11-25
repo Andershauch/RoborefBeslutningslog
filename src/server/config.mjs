@@ -73,6 +73,7 @@ export function describeMissingConfig(config) {
 /**
  * Indstillinger for den lokale server. Begge kan sættes i `.env`.
  * ROBOREF_PORT: port på 127.0.0.1 (standard 5188).
+ * ROBOREF_HOST: adresse at lytte på (standard 127.0.0.1; ændres kun bag en HTTPS-proxy).
  * ROBOREF_DATA_DIR: mappe til databasen (standard: data/ i projektet). Hvis en database
  * allerede findes i den ældre placering local-runtime/data, bruges den, så ingen data
  * 'forsvinder' ved opdatering af koden.
@@ -92,7 +93,23 @@ export function parseServerSettings(env, root) {
     ? legacyDirectory
     : path.join(root, 'data');
   const dataDirectory = rawDirectory ? path.resolve(root, rawDirectory) : defaultDirectory;
-  return {port, dataDirectory};
+  const host = (env.ROBOREF_HOST ?? '').trim() || '127.0.0.1';
+  if (!/^[A-Za-z0-9.:[\]-]{1,255}$/.test(host)) {
+    throw new Error('ROBOREF_HOST er ikke en gyldig adresse.');
+  }
+  return {port, dataDirectory, host};
+}
+
+/**
+ * Organisatoriske regler. ROBOREF_REQUIRE_FOUR_EYES=true betyder, at den, der har uploadet en
+ * version, ikke selv må godkende den. Giver kun mening med login (flere forskellige brugere).
+ */
+export function parsePolicy(env = process.env) {
+  const raw = (env.ROBOREF_REQUIRE_FOUR_EYES ?? '').trim().toLowerCase();
+  if (raw !== '' && raw !== 'true' && raw !== 'false') {
+    throw new Error('ROBOREF_REQUIRE_FOUR_EYES skal være true eller false.');
+  }
+  return {fourEyes: raw === 'true'};
 }
 
 /**
@@ -108,6 +125,104 @@ export function parseIdentity(env = process.env) {
     userId: 'local-user',
     displayName: name || 'Lokal bruger',
     email: 'lokal@denne-computer.invalid',
+    // Den ene lokale bruger har alle rettigheder, fordi der ikke er noget login at skelne ud fra.
+    roles: ['admin'],
     identityVerified: false,
+  };
+}
+
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
+
+function parseHttpsUrl(name, raw, problems) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    problems.push(`${name} er ikke en gyldig adresse.`);
+    return null;
+  }
+  const loopback = LOOPBACK.has(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    problems.push(`${name} skal starte med https://.`);
+    return null;
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    problems.push(`${name} må ikke indeholde brugernavn, adgangskode, ? eller #.`);
+    return null;
+  }
+  return url;
+}
+
+function parseBoolean(name, raw, fallback, problems) {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (value === '') return fallback;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  problems.push(`${name} skal være true eller false.`);
+  return fallback;
+}
+
+/**
+ * Login. ROBOREF_AUTH_MODE=local (standard): intet login, én bruger på din egen computer.
+ * ROBOREF_AUTH_MODE=oidc: login med Entra ID (OpenID Connect) og roller; se docs/login-entra-id.md.
+ * Returnerer aldrig hemmeligheden i fejlbeskeder.
+ */
+export function parseAuthConfig(env = process.env) {
+  const mode = (env.ROBOREF_AUTH_MODE ?? '').trim().toLowerCase() || 'local';
+  if (mode === 'local') return {mode: 'local'};
+  if (mode !== 'oidc') throw new Error('ROBOREF_AUTH_MODE skal være local eller oidc.');
+
+  const problems = [];
+  const required = (name) => {
+    const value = (env[name] ?? '').trim();
+    if (!value) problems.push(`${name} mangler.`);
+    return value;
+  };
+
+  const issuerRaw = required('ROBOREF_OIDC_ISSUER');
+  const issuerUrl = issuerRaw ? parseHttpsUrl('ROBOREF_OIDC_ISSUER', issuerRaw, problems) : null;
+  const clientId = required('ROBOREF_OIDC_CLIENT_ID');
+  if (clientId && !/^[A-Za-z0-9._-]{1,200}$/.test(clientId)) {
+    problems.push('ROBOREF_OIDC_CLIENT_ID indeholder ugyldige tegn.');
+  }
+  const clientSecret = required('ROBOREF_OIDC_CLIENT_SECRET');
+  if (clientSecret && !/^[\x21-\x7e]{1,4096}$/.test(clientSecret)) {
+    problems.push('ROBOREF_OIDC_CLIENT_SECRET indeholder ugyldige tegn eller er for lang.');
+  }
+  const publicRaw = required('ROBOREF_PUBLIC_URL');
+  const publicUrl = publicRaw ? parseHttpsUrl('ROBOREF_PUBLIC_URL', publicRaw, problems) : null;
+  if (publicUrl && publicUrl.pathname !== '/') {
+    problems.push(
+      'ROBOREF_PUBLIC_URL skal være en adresse uden sti, fx https://beslutningslog.kommune.dk.',
+    );
+  }
+
+  const requireMfa = parseBoolean('ROBOREF_REQUIRE_MFA', env.ROBOREF_REQUIRE_MFA, true, problems);
+  let sessionHours = 8;
+  const hoursRaw = (env.ROBOREF_SESSION_HOURS ?? '').trim();
+  if (hoursRaw) {
+    sessionHours = Number(hoursRaw);
+    if (!Number.isInteger(sessionHours) || sessionHours < 1 || sessionHours > 72) {
+      problems.push('ROBOREF_SESSION_HOURS skal være et helt tal mellem 1 og 72.');
+    }
+  }
+
+  if (problems.length)
+    throw new Error(`Login (oidc) er ikke sat rigtigt op: ${problems.join(' ')}`);
+
+  // Entra ID's adresse indeholder organisationens tenant-id; det kontrolleres i hvert login.
+  const issuer = issuerUrl.origin + issuerUrl.pathname.replace(/\/+$/, '');
+  const tenant = issuerUrl.pathname.match(
+    /^\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/v2\.0\/?$/i,
+  );
+  return {
+    mode: 'oidc',
+    issuer,
+    clientId,
+    clientSecret,
+    publicOrigin: publicUrl.origin,
+    requireMfa,
+    sessionHours,
+    tenantId: tenant ? tenant[1].toLowerCase() : null,
   };
 }

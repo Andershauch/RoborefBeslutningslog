@@ -2,6 +2,7 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   LayoutGrid,
+  LogOut,
   History,
   ShieldCheck,
   ArrowUpRight,
@@ -41,6 +42,8 @@ import RoborefSelection from './roboref-selection';
 import RoborefCheck from './roboref-check';
 import type {RoborefSource} from './roboref-import';
 import Detail from './detail';
+import {can} from '../shared/roles';
+import type {Role} from '../shared/roles';
 import Modal from './modal';
 import {roborefLinks, fetchRoborefOverview} from './roboref-overview';
 import type {RemoteInfo} from './roboref-overview';
@@ -50,9 +53,23 @@ export default function Dashboard({
   user,
   initialData,
 }: {
-  user: {name: string; email: string};
+  user: {name: string; email: string; roles?: Role[]; authMode?: string};
   initialData?: Data;
 }) {
+  // Afslutter sessionen på serveren og sender brugeren videre til loginudbyderens logud-side.
+  async function logOut() {
+    try {
+      const response = await fetch('/auth/logout', {method: 'POST'});
+      const body = (await response.json()) as {redirect?: string};
+      window.location.assign(body.redirect || '/');
+    } catch {
+      window.location.assign('/');
+    }
+  }
+  // Kun hjælp til brugeren: serveren håndhæver rettighederne uanset hvad der vises her.
+  const roles = user.roles ?? [];
+  const canWrite = can(roles, 'write');
+  const canDecide = can(roles, 'decide');
   const [checkPromptId, setCheckPromptId] = useState('');
   const [selectionOpen, setSelectionOpen] = useState(false),
     [checkOpen, setCheckOpen] = useState(false),
@@ -187,6 +204,7 @@ export default function Dashboard({
     setQuery('');
   }
   function startUpload(target = '') {
+    if (!canWrite) return;
     setRoborefSource(undefined);
     setUploadTarget(target);
     setUpload(true);
@@ -376,6 +394,16 @@ export default function Dashboard({
             <strong>{user.name}</strong>
             <small title={user.email}>{user.email}</small>
           </div>
+          {user.authMode === 'oidc' && (
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => void logOut()}
+              aria-label="Log ud"
+            >
+              <LogOut size={16} />
+            </button>
+          )}
         </div>
       </aside>
       <div className="main-shell">
@@ -413,8 +441,10 @@ export default function Dashboard({
               data={data}
               onBack={() => setSelected('')}
               onUpload={() => startUpload(selectedPrompt.id)}
+              canWrite={canWrite}
+              canDecide={canDecide}
               onCheck={
-                roborefLinks(data).some((link) => link.promptId === selectedPrompt.id)
+                canWrite && roborefLinks(data).some((link) => link.promptId === selectedPrompt.id)
                   ? () => {
                       setCheckPromptId(selectedPrompt.id);
                       setCheckOpen(true);
@@ -444,24 +474,26 @@ export default function Dashboard({
                         : 'Saml versioner, begrundelser og ansvar i én eksport.'}
                   </p>
                 </div>
-                <div>
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      setCheckPromptId('');
-                      setCheckOpen(true);
-                    }}
-                  >
-                    Tjek for ændringer
-                  </button>{' '}
-                  <button className="button secondary" onClick={() => setSelectionOpen(true)}>
-                    Hent fra Roboref
-                  </button>{' '}
-                  <button className="button primary" onClick={() => startUpload()}>
-                    <Plus size={19} />
-                    Upload prompt
-                  </button>
-                </div>
+                {canWrite && (
+                  <div>
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        setCheckPromptId('');
+                        setCheckOpen(true);
+                      }}
+                    >
+                      Tjek for ændringer
+                    </button>{' '}
+                    <button className="button secondary" onClick={() => setSelectionOpen(true)}>
+                      Hent fra Roboref
+                    </button>{' '}
+                    <button className="button primary" onClick={() => startUpload()}>
+                      <Plus size={19} />
+                      Upload prompt
+                    </button>
+                  </div>
+                )}
               </div>
               {error && (
                 <div className="error error-banner" role="alert">
@@ -716,10 +748,12 @@ export default function Dashboard({
                             <br />
                             og giv beslutningerne et sted at høre til.
                           </p>
-                          <button className="button primary" onClick={() => startUpload()}>
-                            <Upload size={17} />
-                            Upload din første prompt
-                          </button>
+                          {canWrite && (
+                            <button className="button primary" onClick={() => startUpload()}>
+                              <Upload size={17} />
+                              Upload din første prompt
+                            </button>
+                          )}
                           <small>
                             Du kan begynde med en eksisterende version eller med den medfølgende
                             eksempelprompt.
@@ -1191,7 +1225,9 @@ export default function Dashboard({
                     .filter((e: Event) => e.prompt_id === p.id)
                     .map((e: Event) => (
                       <p key={e.id}>
-                        {date(e.occurred_at, true)} · {e.actor_name} ({e.actor_email}) ·{' '}
+                        {date(e.occurred_at, true)} · {e.actor_name} ({e.actor_email})
+                        {user.authMode === 'oidc' && !e.identity_verified && ' · ikke verificeret'}{' '}
+                        ·{' '}
                         {e.action === 'rejected'
                           ? 'Afvisning: ' + JSON.parse(e.detail).reason
                           : e.action === 'approved'

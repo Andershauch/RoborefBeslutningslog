@@ -1,9 +1,15 @@
 // GET /api/export: komplet eksport af prompter, versioner og hændelser som JSON.
-import {json} from './common.ts';
+import {RequestError, json, requirePermission} from './common.ts';
 import type {HandlerContext} from './common.ts';
 
 export function createExportHandler({db, user}: HandlerContext) {
   return async function GET(): Promise<Response> {
+    try {
+      requirePermission(user, 'read');
+    } catch (error) {
+      if (error instanceof RequestError) return json({error: error.message}, error.status);
+      throw error;
+    }
     const [prompts, versions, events] = await db.batch([
       db.prepare('SELECT * FROM prompts ORDER BY created_at'),
       db.prepare('SELECT * FROM versions ORDER BY prompt_id,number'),

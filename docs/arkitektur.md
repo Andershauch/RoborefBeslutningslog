@@ -18,7 +18,8 @@ Browser (React)  ──HTTP──▶  Node-server (127.0.0.1)  ──▶  SQLite
 | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `src/server/server.mjs`           | Startpunkt: indlæser `.env`, kontrollerer Node-version, starter HTTP-server, åbner browser             |
 | `src/server/app.mjs`              | `createLocalApplication`: samler lagring, handlers og statiske filer; `handle(Request) → Response`     |
-| `src/server/config.mjs`           | Validering af `.env` (Roboref-nøgle/-adresse, port, datamappe, brugernavn)                             |
+| `src/server/config.mjs`           | Validering af `.env` (Roboref-nøgle/-adresse, port, datamappe, brugernavn, login, firøjneprincip)      |
+| `src/server/auth/oidc.mjs`        | Login med OpenID Connect (Entra ID): kode-flow med PKCE, state og nonce, sessioner, logud               |
 | `src/server/storage.mjs`          | SQLite-adapter, migrationer, daglig backup, atomiske batches                                           |
 | `src/server/roboref-api.mjs`      | Læsende proxy til Roboref; nøglen forlader aldrig serveren                                             |
 | `src/server/handlers/`            | API-handlers som TypeScript-moduler: `log.ts` (+ `log-review.ts`, `log-upload.ts`), `content.ts`, `export.ts`, `common.ts` |
@@ -35,7 +36,7 @@ Tre tabeller (se `migrations/0000_prompt_log.sql`):
 
 - `prompts`: id, titel, mødetype, formål, ansvarlig, fagområde, oprettet af/hvornår og `active_version_id` (den gældende version, eller `NULL`).
 - `versions`: id, `prompt_id`, løbenummer, filnavn, **indhold**, SHA-256, ændring/årsag/effekt/begrundelse, hvem og hvornår der uploadede, og (efter godkendelse) hvem/hvornår/ibrugtagningsdato. Unikke indekser sikrer, at et versionsnummer og et indhold kun findes én gang pr. prompt.
-- `events`: den uforanderlige log. Handlinger: `uploaded`, `approved`, `rejected`, `archived`, `restored`, `roboref_reviewed`. `detail` er JSON med bl.a. kilde (Roboref-mødetype), sammenligningsgrundlag og bekræftelsestekst.
+- `events`: den uforanderlige log. Handlinger: `uploaded`, `approved`, `rejected`, `archived`, `restored`, `roboref_reviewed`. `detail` er JSON med bl.a. kilde (Roboref-mødetype), sammenligningsgrundlag og bekræftelsestekst. Kolonnen `identity_verified` er 1, når den, der handlede, var bekræftet af et login, ellers 0.
 
 **Afledt status.** Der er ingen statuskolonne. En version er _afvist_, hvis der findes en `rejected`-hændelse; _gældende_, hvis den er prompten `active_version_id`; _kladde_ ellers. En prompt er _arkiveret_, hvis den seneste `archived`/`restored`-hændelse er `archived`.
 
@@ -52,7 +53,9 @@ Disse er dækket af tests og må ikke brydes uden en bevidst beslutning:
 7. **Alle svar har sikkerhedsheadere** og en streng CSP uden `unsafe-eval` og uden eksterne adresser. Fejlsvar afslører ingen interne oplysninger.
 8. **Brugerens tekst vises altid som tekst** (React escaper); data indsættes i bootstrap-scriptet med `<` escapet.
 9. **Migrationer er kun-tilføjelser.** En eksisterende migrationsfil må ikke ændres eller omdøbes (filnavnet er nøglen i `local_migrations`). Nye ændringer får en ny fil med højere nummer.
-10. **Historiske handlinger tilskrives aldrig en person uden grundlag.** Identiteten er et ikke-verificeret navn fra `.env`, og det er markeret `identityVerified: false`.
+10. **Rettigheder håndhæves på serveren.** Hver handling kræver en rettighed (`read`, `write` eller `decide`), som afledes af brugerens roller (`reader`, `editor`, `approver`, `admin`; rettighederne lægges sammen, se `src/shared/roles.ts`). Brugerfladen skjuler blot knapper. Uden login (eller uden roller) er svaret 401/403. I lokal tilstand har den ene bruger rollen `admin`.
+11. **Historiske handlinger tilskrives aldrig en person uden grundlag.** Identiteten er et ikke-verificeret navn fra `.env`, og det er markeret `identityVerified: false`.
+12. **Login-flowet må ikke svækkes.** State (bundet til browserens cookie), PKCE, nonce, kontrol af signatur, udsteder, målgruppe, udløb og organisation, to-faktor, `Secure`/`HttpOnly`/`SameSite`-cookies og hashede sessionsnøgler er dækket af `tests/oidc.test.mjs`. Tokens og hemmeligheder må aldrig logges eller returneres.
 
 ## Anmodningsflow
 
@@ -69,9 +72,9 @@ Brugerfladen er TypeScript/TSX i `src/client/`. `scripts/build-local-client.mjs`
 
 - **Node.js ≥ 24 uden TypeScript-kompilering til serveren.** Node kører `.ts`-filerne direkte (type stripping). Derfor kun _sletbar_ TypeScript-syntaks (ingen enums eller parameter properties; `erasableSyntaxOnly`), `import type` til typer, og `.ts` i importstier mellem serverfiler.
 - **`node:sqlite`** (indbygget) i stedet for en ekstern database: ingen installation, én fil at tage backup af. Det er til én bruger ad gangen.
-- **Ingen login og ingen roller.** Alle med adgang til `127.0.0.1:5188` på computeren kan læse og skrive. Se [Sikkerhed](../SECURITY.md).
+- **Login er valgfrit.** Uden login (standard) har den ene bruger rollen `admin`, og alle med adgang til `127.0.0.1:5188` kan læse og skrive. Med `ROBOREF_AUTH_MODE=oidc` kræves login med Entra ID, og rettigheder følger rollerne i login. Se [Sikkerhed](../SECURITY.md) og [Login med Entra ID](login-entra-id.md).
 - **Roboref-integrationen er læsende og manuel.** Der er ingen automatisk overvågning.
 
 ## Mulige udvidelser (ikke implementeret)
 
-Hosting med fælles adgang, en server-database, verificeret login (fx OIDC) og roller ville kræve en særskilt, testet migrering med backup og tilbageførselsplan, samt at historiske handlinger fortsat ikke tilskrives uverificerede personer. Intet af dette er en del af programmet i dag.
+Hosting af en delt udgave er i dag mulig, men kun som én server med SQLite og en HTTPS-proxy. En server-database (fx PostgreSQL) til flere servere, automatisk brugerstyring (SCIM) og andre loginudbydere end Entra ID er ikke implementeret og ville kræve en særskilt, testet migrering med backup og tilbageførselsplan. Historiske handlinger tilskrives fortsat aldrig en person uden verificeret grundlag.

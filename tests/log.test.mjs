@@ -1,6 +1,6 @@
 import {test, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createLogHandlers} from '../src/server/handlers/log.ts';
 import {createContentHandler} from '../src/server/handlers/content.ts';
@@ -10,7 +10,13 @@ import {createHash} from 'node:crypto';
 // Kører de rigtige handlers og SQL mod en ægte SQLite-database uden netværk.
 // Batch-kald er transaktionelle, som i den lokale lagringsadapter.
 let sql, beforeBatch;
-const user = {userId: 'test-user', displayName: 'Testbruger', email: 'test@example.invalid'};
+const user = {
+  userId: 'test-user',
+  displayName: 'Testbruger',
+  email: 'test@example.invalid',
+  roles: ['admin'],
+  identityVerified: false,
+};
 class Statement {
   constructor(query, args = []) {
     this.query = query;
@@ -60,7 +66,10 @@ beforeEach(() => {
   sql?.close();
   sql = new DatabaseSync(':memory:');
   sql.exec('PRAGMA foreign_keys=ON;');
-  sql.exec(readFileSync(new URL('../migrations/0000_prompt_log.sql', import.meta.url), 'utf8'));
+  // Alle migrationer i rækkefølge, som den rigtige lagring gør.
+  for (const name of readdirSync(new URL('../migrations/', import.meta.url)).sort()) {
+    sql.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
+  }
   beforeBatch = null;
 });
 const payload = {

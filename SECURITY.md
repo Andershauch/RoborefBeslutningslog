@@ -15,10 +15,25 @@ Kun den nyeste udgivelse (`main`) får sikkerhedsrettelser.
 Programmet er lavet til **én bruger på én computer**:
 
 - Serveren lytter kun på `127.0.0.1` og afviser andre værtsnavne og andre oprindelser (`Origin`).
-- Der er **ingen login og ingen roller**. Alle, der kan nå `127.0.0.1:5188` på din computer, kan læse og ændre loggen. Kør det ikke på en delt server, og udsæt det ikke på et netværk.
+- **Uden login (standard)** er der ingen roller: alle, der kan nå `127.0.0.1:5188` på din computer, kan læse og ændre loggen. Kør det ikke på en delt server uden at slå login til.
 - Handlinger registreres under et navn, du selv vælger (`ROBOREF_USER_NAME`). Det er ikke verificeret og er ikke et sikkert revisionsspor mod en ondsindet bruger.
 - Dataene ligger i en lokal SQLite-fil, som ikke krypteres. Beskyt computeren, og tag backup.
 - Appen kalder kun Roboref (læsende) med din egen API-nøgle. Nøglen sendes kun fra serveren til Roboref og returneres aldrig til browseren.
+
+## Login med Entra ID (valgfrit, til en server)
+
+Når `ROBOREF_AUTH_MODE=oidc` er slået til (se [Login med Entra ID](docs/login-entra-id.md)):
+
+- Brugerne logger ind hos Microsoft. Appen ser og gemmer **aldrig en adgangskode**.
+- Flowet er _authorization code_ med **PKCE**, **state** (bundet til browseren) og **nonce**. Hvert login bruges én gang.
+- Id-tokenets **signatur, udsteder, målgruppe, udløb og organisation (tid)** kontrolleres. Tokens med forkert nøgle, adresse, nonce eller udløbet tid afvises.
+- **To-faktor** kræves som standard (kontrollerer `amr`); jeres Betinget adgang-politik er den primære håndhævelse.
+- **Roller** kommer fra Entra. Uden en gyldig rolle får man ingen adgang. Rettigheder håndhæves på serveren.
+- Sessionen er en tilfældig nøgle i en `HttpOnly`-cookie (`SameSite=Lax`, `Secure` og `__Host-`-præfiks over HTTPS). **Kun nøglens hash** ligger i databasen. Logud er kun muligt med POST fra appens egen adresse.
+- Hver hændelse i loggen markerer, om identiteten var **bekræftet** af login. Handlinger fra før login tilskrives aldrig en person.
+- Appen **lytter kun lokalt** og kræver en HTTPS-proxy foran; kun den offentlige adresse accepteres som vært og oprindelse.
+
+Login er afprøvet mod en **simuleret** Entra ID og skal verificeres mod jeres egen lejer (se guiden, trin 8).
 
 ## Hvad der beskytter dig
 
@@ -50,6 +65,8 @@ Dependabot foreslår ugentligt opdateringer af pakker og GitHub Actions.
 
 ## Kendte begrænsninger
 
-- Der er intet login, ingen roller og ingen kryptering af databasen (se ovenfor).
+- Uden login er der ingen roller. Med login styres roller i Entra og læses ved login (de gælder, til sessionen udløber).
+- Databasen er ikke krypteret. Programmet er én server med én SQLite-database og kan ikke køre på flere servere.
+- Appen har ingen egen beskyttelse mod gætning af adgangskoder; det håndterer Entra (herunder spærring og to-faktor).
 - Roboref-historikkens datoer er ikke nødvendigvis den dato, en ændring faktisk blev taget i brug.
 - Programmet er en dokumentationslog og ikke en garanti for opfyldelse af tilsynskrav.

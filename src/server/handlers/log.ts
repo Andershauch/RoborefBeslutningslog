@@ -1,16 +1,33 @@
 // POST/GET /api/log: læser hele beslutningsloggen og modtager alle ændringer.
 // Handlingerne ligger i log-review.ts og log-upload.ts.
-import {RequestError, json, parseJsonObject} from './common.ts';
+import {RequestError, json, parseJsonObject, requirePermission} from './common.ts';
 import type {HandlerContext} from './common.ts';
+import type {Permission} from '../../shared/roles.ts';
 import {approve, archiveOrRestore, reject, reviewRoboref} from './log-review.ts';
 import {uploadOrCompare} from './log-upload.ts';
 
 const MAX_REQUEST_BYTES = 350_000;
 const FILE_TOO_LARGE = 'Filen er for stor.';
 
+// Hvilken rettighed hver handling kræver. Ukendte handlinger afvises som ugyldige.
+const ACTION_PERMISSIONS: Record<string, Permission> = {
+  upload: 'write',
+  compare: 'write',
+  archive: 'write',
+  restore: 'write',
+  review_roboref: 'write',
+  approve: 'decide',
+  reject: 'decide',
+};
+
 export function createLogHandlers(context: HandlerContext) {
   async function GET(): Promise<Response> {
     const {db} = context;
+    try {
+      requirePermission(context.user, 'read');
+    } catch (error) {
+      return errorResponse(error);
+    }
     try {
       const [prompts, versions, events] = await db.batch([
         db.prepare('SELECT * FROM prompts ORDER BY created_at DESC'),
@@ -39,6 +56,8 @@ export function createLogHandlers(context: HandlerContext) {
       if (new TextEncoder().encode(raw).length > MAX_REQUEST_BYTES)
         return json({error: FILE_TOO_LARGE}, 413);
       const body = parseJsonObject(raw);
+      const required = ACTION_PERMISSIONS[String(body.action)];
+      if (required) requirePermission(context.user, required);
       const ctx = {...context, now: new Date().toISOString()};
 
       switch (body.action) {

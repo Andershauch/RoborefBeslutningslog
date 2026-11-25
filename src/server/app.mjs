@@ -3,16 +3,16 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createStorage} from './storage.mjs';
 import {roborefRequest} from './roboref-api.mjs';
-import {parseIdentity, parseRoborefConfig} from './config.mjs';
+import {parseIdentity, parsePolicy, parseRoborefConfig} from './config.mjs';
 import {createLogHandlers} from './handlers/log.ts';
 import {createContentHandler} from './handlers/content.ts';
 import {createExportHandler} from './handlers/export.ts';
+import {can} from '../shared/roles.ts';
 
 /** Øges, når API'et ændres, så en gammel kørende udgave kan opdages ved start. */
 export const API_VERSION = 7;
 
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const ALLOWED_HOSTNAMES = ['127.0.0.1', 'localhost'];
 
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
@@ -51,6 +51,11 @@ const EXAMPLE_PROMPT = {
     'Eksempelpromten er neutral og er ikke en rigtig prompt. Den afventer gennemgang og godkendelse, ligesom alle andre versioner.',
 };
 
+/** Lokal tilstand: der er intet login, og den ene bruger har altid adgang. */
+function createLocalAuth(identity) {
+  return {mode: 'local', authenticate: async () => identity};
+}
+
 const jsonHeaders = {'Content-Type': 'application/json'};
 
 function reply(body, status = 200, headers = {}) {
@@ -75,20 +80,52 @@ export async function createLocalApplication({
   roboref = parseRoborefConfig(),
   roborefFetch = fetch,
   identity = parseIdentity(),
+  policy = parsePolicy(),
+  authConfig = {mode: 'local'},
+  auth: injectedAuth,
 } = {}) {
   const storage = await createStorage(root, dataDirectory);
-  const origin = `http://127.0.0.1:${port}`;
-  const context = {db: storage.adapter, user: identity};
-  const log = createLogHandlers(context);
-  const content = createContentHandler(context);
-  const exportAll = createExportHandler(context);
+  let auth;
+  try {
+    auth =
+      injectedAuth ??
+      (authConfig.mode === 'oidc'
+        ? await (
+            await import('./auth/oidc.mjs')
+          ).createOidcAuth({config: authConfig, database: storage.database})
+        : createLocalAuth(identity));
+  } catch (error) {
+    storage.close();
+    throw error;
+  }
+  // Med login er appens adresse den offentlige (HTTPS) adresse; lokalt er den loopback.
+  const origin = auth.publicOrigin ?? `http://127.0.0.1:${port}`;
+  const allowedOrigins = auth.publicOrigin
+    ? [auth.publicOrigin]
+    : [`http://127.0.0.1:${port}`, `http://localhost:${port}`];
+  // Handlerne bygges pr. forespørgsel, så hver handling registreres på den bruger, der udførte den.
+  function handlersFor(user) {
+    const context = {db: storage.adapter, user, policy};
+    return {
+      log: createLogHandlers(context),
+      content: createContentHandler(context),
+      exportAll: createExportHandler(context),
+    };
+  }
+  const forbidden = () =>
+    reply(JSON.stringify({error: 'Du har ikke rettighed til denne handling.'}), 403, jsonHeaders);
 
-  if (seedExample && !storage.database.prepare('SELECT id FROM prompts LIMIT 1').get()) {
+  if (
+    seedExample &&
+    auth.mode === 'local' &&
+    !storage.database.prepare('SELECT id FROM prompts LIMIT 1').get()
+  ) {
     const payload = {
       ...EXAMPLE_PROMPT,
       content: readFileSync(path.join(root, 'public/eksempel-prompt.md'), 'utf8'),
     };
-    const response = await log.POST(
+    // Eksempelprompten er en systemhandling og skal lykkes uanset den konfigurerede brugers roller.
+    const response = await handlersFor({...identity, roles: ['admin']}).log.POST(
       new Request(`${origin}/api/log`, {
         method: 'POST',
         headers: {Origin: origin, 'Content-Type': 'application/json'},
@@ -106,7 +143,7 @@ export async function createLocalApplication({
       return reply(
         JSON.stringify({
           app: 'roboref-beslutningslog',
-          mode: 'local',
+          mode: auth.mode,
           persistent: true,
           apiVersion: API_VERSION,
         }),
@@ -114,7 +151,14 @@ export async function createLocalApplication({
         jsonHeaders,
       );
     }
+    const user = await auth.authenticate(request);
+    if (!user) {
+      return reply(JSON.stringify({error: 'Log ind for at fortsætte.'}), 401, jsonHeaders);
+    }
+    const {log, content, exportAll} = handlersFor(user);
     if (pathname === '/api/roboref') {
+      // Roboref-integrationen bruger organisationens API-nøgle og kræver derfor skriverettighed.
+      if (!can(user.roles, 'write')) return forbidden();
       return withSecurityHeaders(await roborefRequest(request, origin, roboref, roborefFetch));
     }
     if (pathname === '/api/log' && request.method === 'GET')
@@ -128,9 +172,11 @@ export async function createLocalApplication({
       if (!response.ok) return withSecurityHeaders(response);
       const data = await response.json();
       data.runtime = {
-        mode: 'local',
-        identityVerified: false,
-        note: 'Navnet i denne lokale udgave er ikke verificeret med login.',
+        mode: auth.mode,
+        identityVerified: user.identityVerified,
+        note: user.identityVerified
+          ? 'Navnet er bekræftet af login.'
+          : 'Navnet i denne udgave er ikke verificeret med login.',
       };
       return withSecurityHeaders(
         new Response(JSON.stringify(data, null, 2), {status: 200, headers: response.headers}),
@@ -141,16 +187,27 @@ export async function createLocalApplication({
 
   async function handleStatic(request, pathname) {
     if (pathname === '/bootstrap.js') {
-      const response = await log.GET();
+      const user = await auth.authenticate(request);
+      if (!user) {
+        return reply('/* Ikke logget ind */', 401, {
+          'Content-Type': 'text/javascript; charset=utf-8',
+        });
+      }
+      const response = await handlersFor(user).log.GET();
       const data = response.ok ? await response.json() : null;
       // "<" skrives som <, så data aldrig kan afslutte script-elementet.
       const safe = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
-      const script = `globalThis.__ROBOREF_INITIAL__=${safe(data)};globalThis.__ROBOREF_USER__=${safe({name: identity.displayName})};`;
+      const script = `globalThis.__ROBOREF_INITIAL__=${safe(data)};globalThis.__ROBOREF_USER__=${safe({name: user.displayName, roles: user.roles, verified: user.identityVerified, authMode: auth.mode})};`;
       return reply(script, 200, {'Content-Type': 'text/javascript; charset=utf-8'});
     }
     const head = request.method === 'HEAD';
-    if (pathname === '/')
+    if (pathname === '/') {
+      // Med login sendes ikke-loggede brugere til loginsiden i stedet for at se en tom side.
+      if (auth.loginPath && !(await auth.authenticate(request))) {
+        return reply(null, 302, {Location: auth.loginPath});
+      }
       return reply(head ? null : HOME_PAGE, 200, {'Content-Type': 'text/html; charset=utf-8'});
+    }
     const file = STATIC_FILES[pathname];
     if (!file) return reply('Siden findes ikke.', 404);
     return reply(head ? null : readFileSync(path.join(root, file[0])), 200, {
@@ -161,11 +218,11 @@ export async function createLocalApplication({
   async function handle(request) {
     try {
       const url = new URL(request.url);
-      const allowed =
-        ALLOWED_HOSTNAMES.includes(url.hostname) &&
-        url.port === String(port) &&
-        url.protocol === 'http:';
-      if (!allowed) return reply('Adgang afvist.', 403);
+      if (!allowedOrigins.includes(url.origin)) return reply('Adgang afvist.', 403);
+      if (url.pathname.startsWith('/auth/') && auth.handleRoute) {
+        const routed = await auth.handleRoute(request, url);
+        if (routed) return withSecurityHeaders(routed);
+      }
       if (url.pathname.startsWith('/api/')) return await handleApi(request, url.pathname);
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return reply('Metoden understøttes ikke.', 405);
@@ -185,6 +242,8 @@ export async function createLocalApplication({
   return {
     handle,
     origin,
+    publicOrigin: auth.publicOrigin,
+    authMode: auth.mode,
     roboref,
     dataDirectory,
     filename: storage.filename,

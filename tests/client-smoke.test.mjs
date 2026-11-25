@@ -82,6 +82,7 @@ test('the user name from the server is shown in the interface', async () => {
     userId: 'local-user',
     displayName: 'Mette Test',
     email: 'lokal@denne-computer.invalid',
+    roles: ['admin'],
     identityVerified: false,
   });
   await settle(window, (text) => text.includes('Mette Test'));
@@ -128,4 +129,77 @@ test('hostile text from the database is shown as plain text and never becomes ma
   assert.equal(document.querySelector('#root img'), null, 'intet img-element er oprettet');
   assert.equal(refreshed.window.__xss, undefined, 'ingen kode blev kørt');
   assert.deepEqual([...errors, ...refreshed.errors], []);
+});
+
+// --- Rettigheder i brugerfladen: knapper, man ikke må bruge, vises ikke ---------------------
+
+const withRoles = (roles) => ({
+  userId: 'local-user',
+  displayName: 'Rolletester',
+  email: 'lokal@denne-computer.invalid',
+  roles,
+  identityVerified: false,
+});
+const buttonTexts = (window) =>
+  [...window.document.querySelectorAll('button')].map((b) => b.textContent.trim());
+
+async function openAs(roles) {
+  const {window} = await openApp(withRoles(roles));
+  await settle(window, (text) => text.includes('Eksempelprompt'));
+  const dashboard = buttonTexts(window);
+  // Åbn eksempelprompten (en kladde, der afventer godkendelse).
+  window.document.querySelector('button.prompt-name').click();
+  await settle(window, (text) => text.includes('Afventer gennemgang og godkendelse'));
+  return {dashboard, detail: buttonTexts(window)};
+}
+
+test('a reader sees no buttons for writing or deciding', async () => {
+  const {dashboard, detail} = await openAs(['reader']);
+  for (const label of ['Upload prompt', 'Hent fra Roboref', 'Tjek for ændringer']) {
+    assert.ok(!dashboard.some((text) => text.includes(label)), `læser ser ikke "${label}"`);
+  }
+  for (const label of ['Upload ny version', 'Arkivér prompt', 'Godkend', 'Afvis']) {
+    assert.ok(!detail.some((text) => text.startsWith(label)), `læser ser ikke "${label}"`);
+  }
+});
+
+test('an editor can upload but not approve; an approver can approve but not upload', async () => {
+  const editor = await openAs(['editor']);
+  assert.ok(editor.dashboard.some((text) => text.includes('Upload prompt')));
+  assert.ok(editor.detail.some((text) => text.startsWith('Upload ny version')));
+  assert.ok(!editor.detail.some((text) => text.startsWith('Godkend')));
+  assert.ok(!editor.detail.some((text) => text === 'Afvis'));
+
+  const approver = await openAs(['approver']);
+  assert.ok(!approver.dashboard.some((text) => text.includes('Upload prompt')));
+  assert.ok(approver.detail.some((text) => text.startsWith('Godkend')));
+  assert.ok(approver.detail.some((text) => text === 'Afvis'));
+  assert.ok(!approver.detail.some((text) => text.startsWith('Upload ny version')));
+});
+
+test('the logout button is shown only when login is active', async () => {
+  const local = await openApp();
+  await settle(local.window, (text) => text.includes('Eksempelprompt'));
+  assert.equal(local.window.document.querySelector('button[aria-label="Log ud"]'), null);
+
+  // Samme data, men nu med login: knappen og brugerens verificerede navn vises.
+  app.close();
+  app = await createLocalApplication({
+    dataDirectory: directory,
+    port: PORT,
+    auth: {
+      mode: 'oidc',
+      authenticate: async () => ({
+        userId: 'entra:1',
+        displayName: 'Mette Verificeret',
+        email: 'mette@kommune.example',
+        roles: ['reader'],
+        identityVerified: true,
+      }),
+    },
+  });
+  const {window} = await loadClient();
+  await settle(window, (text) => text.includes('Mette Verificeret'));
+  assert.ok(window.document.querySelector('button[aria-label="Log ud"]'));
+  assert.match(window.document.body.textContent, /Logget ind med kommunal konto/);
 });

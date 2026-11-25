@@ -2,6 +2,20 @@
 
 Alle væsentlige ændringer noteres her. Formatet følger [Keep a Changelog](https://keepachangelog.com/da/1.1.0/), og versionsnumre følger [semantisk versionering](https://semver.org/lang/da/).
 
+## [Ikke udgivet]
+
+### Tilføjet
+
+- **Valgfrit login med Microsoft Entra ID** (OpenID Connect) til drift på en server: roller (Læser, Redaktør, Godkender, Administrator), krav om to-faktor og en trin-for-trin-guide til kommunens IT ([docs/login-entra-id.md](docs/login-entra-id.md)). Uden login (standard) er alt uændret.
+- Rettigheder håndhæves på serveren; hver hændelse i loggen markerer, om identiteten var bekræftet af login. Gamle hændelser markeres som ikke verificerede.
+- Valgfrit **firøjneprincip** (`ROBOREF_REQUIRE_FOUR_EYES`): den, der uploadede en version, kan ikke selv godkende den.
+- Indstillingerne `ROBOREF_AUTH_MODE`, `ROBOREF_OIDC_*`, `ROBOREF_PUBLIC_URL`, `ROBOREF_REQUIRE_MFA`, `ROBOREF_SESSION_HOURS` og `ROBOREF_HOST`.
+
+### Bemærk
+
+- Login er afprøvet mod en simuleret Entra ID og skal verificeres mod jeres egen lejer, især at id-tokenet indeholder `amr` med `mfa` (se guiden).
+- Login kræver pakken `jose` (`npm ci --omit=dev`). Den lokale app uden login kræver stadig ingen `npm install`.
+
 ## [1.0.0] – 2026-11-25
 
 Første offentlige udgivelse.

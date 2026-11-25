@@ -140,6 +140,12 @@ export async function approve(ctx: ReviewContext, body: Body) {
   const versionId = requiredText(body, 'versionId', 100);
   const version = await findVersion(ctx, versionId);
   if (version.approved_at) throw new RequestError('Versionen er allerede godkendt.', 409);
+  if (ctx.policy?.fourEyes && version.author_id === ctx.user.userId) {
+    throw new RequestError(
+      'Den, der har uploadet versionen, kan ikke selv godkende den (firøjneprincippet). Bed en kollega om at godkende.',
+      403,
+    );
+  }
   const rejected = await ctx.db
     .prepare("SELECT id FROM events WHERE version_id=? AND action='rejected'")
     .bind(versionId)

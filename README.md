@@ -38,6 +38,7 @@ I mappen `data/` i projektmappen (databasen `beslutningslog.sqlite`). Ved hver o
 | -------------------------------------------- | ------------------------------------------------------ |
 | [Brugervejledning](docs/brugervejledning.md) | Sådan registrerer, godkender og eksporterer du         |
 | [Konfiguration](docs/konfiguration.md)       | Alle indstillinger i `.env`                            |
+| [Login med Entra ID](docs/login-entra-id.md) | Til kommunens IT: login, roller og to-faktor på en server |
 | [Drift og backup](docs/drift.md)             | Opdatering, backup, kontrol af backup, fejlfinding     |
 | [Sikkerhed](SECURITY.md)                     | Sikkerhedsmodel, rapportering af sårbarheder           |
 | [Arkitektur](docs/arkitektur.md)             | Hvordan programmet er bygget og hvorfor                |
@@ -46,7 +47,7 @@ I mappen `data/` i projektmappen (databasen `beslutningslog.sqlite`). Ved hver o
 
 ## Teknik i korte træk
 
-Node.js (≥ 24) uden eksterne servere: en lille webserver på `127.0.0.1`, SQLite i `node:sqlite` og en færdigbygget React-brugerflade, der ligger i repositoryet. Du behøver ikke køre `npm install` for at bruge appen, kun for at udvikle på den.
+Node.js (≥ 24) uden eksterne servere: en lille webserver på `127.0.0.1`, SQLite i `node:sqlite` og en færdigbygget React-brugerflade, der ligger i repositoryet. Du behøver ikke køre `npm install` for at bruge appen på din egen computer, kun for at udvikle på den, eller hvis I slår login til på en server (`npm ci --omit=dev`). Login med Entra ID er valgfrit; se [Login med Entra ID](docs/login-entra-id.md).
 
 ## Uofficielt værktøj
 

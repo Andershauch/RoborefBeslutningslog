@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdtemp, rm} from 'node:fs/promises';
 import {createServer} from 'node:net';
-import {createServer as createHttpServer} from 'node:http';
+import {createServer as createHttpServer, request as httpRequest} from 'node:http';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -155,6 +155,85 @@ test('a second start reuses the running app, and an outdated app on the port is 
     assert.match(third.output(), /tidligere version/);
   } finally {
     await new Promise((resolve) => old.close(resolve));
+    await rm(work, {recursive: true, force: true});
+  }
+});
+
+// --- Login (OIDC) i den rigtige server -------------------------------------------------------
+
+function getWithHost(port, host, pathname = '/') {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {host: '127.0.0.1', port, path: pathname, headers: {Host: host}},
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => (body += chunk));
+        res.on('end', () => resolve({status: res.statusCode, headers: res.headers, body}));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('with login enabled the server answers only to its public host, and health to any host', async () => {
+  const work = await mkdtemp(path.join(tmpdir(), 'roboref-server-test-'));
+  const port = await freePort();
+  const server = startServer(
+    {
+      ROBOREF_PORT: String(port),
+      ROBOREF_DATA_DIR: path.join(work, 'data'),
+      ROBOREF_AUTH_MODE: 'oidc',
+      ROBOREF_OIDC_ISSUER: 'http://127.0.0.1:9/11111111-2222-3333-4444-555555555555/v2.0',
+      ROBOREF_OIDC_CLIENT_ID: 'klient',
+      ROBOREF_OIDC_CLIENT_SECRET: 'hemmelighed-der-ikke-maa-vises',
+      ROBOREF_PUBLIC_URL: 'https://beslutningslog.example',
+      ROBOREF_API_KEY: '',
+      ROBOREF_BASE_URL: '',
+    },
+    work,
+  );
+  try {
+    const health = await waitForHealth(port, server);
+    assert.equal(health.mode, 'oidc');
+    assert.equal((await getWithHost(port, 'proxy-intern:8080', '/api/health')).status, 200);
+
+    const home = await getWithHost(port, 'beslutningslog.example');
+    assert.equal(home.status, 302);
+    assert.equal(home.headers.location, '/auth/login');
+
+    for (const host of ['evil.example', `127.0.0.1:${port}`, 'localhost']) {
+      assert.equal((await getWithHost(port, host)).status, 403, host);
+      assert.equal((await getWithHost(port, host, '/api/log')).status, 403, host);
+    }
+    assert.equal((await getWithHost(port, 'beslutningslog.example', '/api/log')).status, 401);
+    assert.match(server.output(), /Entra ID/);
+    assert.equal(server.output().includes('hemmelighed-der-ikke-maa-vises'), false);
+  } finally {
+    await stopServer(server);
+    await rm(work, {recursive: true, force: true});
+  }
+});
+
+test('login that is incompletely configured stops the server with a clear message and no secret', async () => {
+  const work = await mkdtemp(path.join(tmpdir(), 'roboref-server-test-'));
+  const server = startServer(
+    {
+      ROBOREF_DATA_DIR: path.join(work, 'data'),
+      ROBOREF_AUTH_MODE: 'oidc',
+      ROBOREF_OIDC_CLIENT_SECRET: 'hemmelighed-der-ikke-maa-vises',
+      ROBOREF_API_KEY: '',
+      ROBOREF_BASE_URL: '',
+    },
+    work,
+  );
+  try {
+    assert.equal(await server.exited, 1);
+    for (const name of ['ROBOREF_OIDC_ISSUER', 'ROBOREF_OIDC_CLIENT_ID', 'ROBOREF_PUBLIC_URL']) {
+      assert.match(server.output(), new RegExp(name));
+    }
+    assert.equal(server.output().includes('hemmelighed-der-ikke-maa-vises'), false);
+  } finally {
     await rm(work, {recursive: true, force: true});
   }
 });

@@ -6,7 +6,7 @@ Gælder alle kodeassistenter (Claude Code, Codex, Copilot m.fl.). Læs dette fø
 
 Lokal beslutningslog for Roboref-mødetype-prompts: versioner, begrundelser, godkendelser og en uforanderlig hændelseslog. **Node.js ≥ 24, én bruger, én computer, SQLite, intet login.** Roboref kaldes kun **læsende**. Brugerfladen og fejltekster er på **dansk**.
 
-Der er **ikke** implementeret: hosting, login/roller, PostgreSQL, Next.js, Cloudflare/D1 eller Entra ID. Antag ikke, at de findes. (En tidligere hostet variant er fjernet og må ikke genindføres uden en bevidst beslutning fra ejeren.)
+Der er **ikke** implementeret: hosting-pakning (Docker), PostgreSQL, flere servere, automatisk brugerstyring (SCIM) eller andre loginudbydere end Microsoft Entra ID. Login (`ROBOREF_AUTH_MODE=oidc`) er valgfrit og testet mod en simuleret Entra ID; antag ikke andet. (En tidligere hostet variant er fjernet og må ikke genindføres uden en bevidst beslutning fra ejeren.)
 
 ## Kommandoer
 
@@ -39,7 +39,9 @@ Før du siger, at noget virker: kør `npm test`, `npm run typecheck`, `npm run l
 6. **Rør aldrig brugerens data.** Kør ikke programmet mod `data/` i en brugers mappe i test; brug midlertidige mapper (`ROBOREF_DATA_DIR`, `mkdtemp`). Migrér ikke lagring eller identitet uden backup, tests og rollbackplan.
 7. **Tilskriv aldrig historiske handlinger en person uden verificeret grundlag.** Identiteten er et ikke-verificeret navn (`ROBOREF_USER_NAME`).
 8. **Sikkerhedsgrænser:** `Origin`-kontrol på skrivning, kun `127.0.0.1`/`localhost` på rigtig port, sikkerhedsheadere og streng CSP på alle svar, størrelsesgrænser, ingen interne detaljer i fejlsvar. Tilføj ikke `unsafe-eval`, eksterne scripts eller netværkskald fra klienten.
-9. **Ingen produktionsdeployment, hosting eller ændring af repositoryets synlighed/indstillinger** uden udtrykkelig godkendelse fra ejeren.
+9. **Rettigheder håndhæves på serveren** (`requirePermission` i `handlers/`; roller i `src/shared/roles.ts`). Skjul aldrig blot en knap i klienten, og tilføj aldrig en handling uden en rettighed i `ACTION_PERMISSIONS`. Hver hændelse gemmer `identity_verified`; tilskriv aldrig en uverificeret handling en person.
+10. **Rør ikke login-flowet uden at køre `tests/oidc.test.mjs`.** Svæk aldrig state/PKCE/nonce, kontrol af signatur/udsteder/målgruppe/udløb/organisation, to-faktor, cookie-flagene eller hashing af sessionsnøgler. Log eller returnér aldrig tokens, koder eller klienthemmeligheden. Uden for loopback kræver `ROBOREF_PUBLIC_URL` HTTPS.
+11. **Ingen produktionsdeployment, hosting eller ændring af repositoryets synlighed/indstillinger** uden udtrykkelig godkendelse fra ejeren.
 
 ## Konventioner
 

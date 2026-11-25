@@ -36,6 +36,8 @@ export type Event = {
   actor_name: string;
   actor_email: string;
   detail: string;
+  /** 1, når handlingen blev udført af en bruger, der var bekræftet af et login. */
+  identity_verified?: number;
 };
 export type Data = {prompts: Prompt[]; versions: Version[]; events: Event[]};
 export async function readJson<T>(response: Response): Promise<T> {

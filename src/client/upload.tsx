@@ -288,6 +288,15 @@ export default function Upload({
                 />
                 <small>Markdown (.md) · UTF-8 · Maks. 200 kB</small>
               </div>
+              <div className="info-box" role="note">
+                <Info size={18} />
+                <div>
+                  <strong>Ingen oplysninger om borgere.</strong> Læg ikke navne, cpr-numre,
+                  adresser, helbredsoplysninger eller sagsforhold i prompter, begrundelser eller
+                  eksempler. Appen er til at beskrive, hvordan en mødetype fungerer, ikke til
+                  konkrete sager. Intet kan slettes igen.
+                </div>
+              </div>
               {!file && !data.prompts.length && (
                 <button
                   type="button"

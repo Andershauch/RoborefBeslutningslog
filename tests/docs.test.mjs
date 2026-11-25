@@ -99,3 +99,21 @@ test('the release metadata is consistent: version in the changelog, license pres
   assert.equal(license, 'MIT');
   assert.match(read('LICENSE'), /^MIT License/);
 });
+
+test('every database table is described in docs/data-i-appen.md', () => {
+  // Oversigten over, hvad appen gemmer, må ikke komme bagud, når en migration tilføjer en tabel.
+  const tables = new Set();
+  for (const file of readdirSync(path.join(root, 'migrations'))) {
+    for (const [, name] of read(`migrations/${file}`).matchAll(/CREATE TABLE `?(\w+)`?/gi)) {
+      tables.add(name);
+    }
+  }
+  assert.ok(tables.size >= 5, 'migrationerne opretter mindst fem tabeller');
+  const overview = read('docs/data-i-appen.md');
+  for (const name of tables) {
+    assert.ok(
+      overview.includes(`\`${name}\``),
+      `tabellen ${name} er ikke beskrevet i docs/data-i-appen.md`,
+    );
+  }
+});

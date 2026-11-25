@@ -20,7 +20,7 @@ Denne guide viser, hvordan en kommune tilslutter Beslutningsloggen til sit Micro
 | En server med **Node.js 24** (LTS)                                                            | Kører programmet                                         |
 | Et **domænenavn** og **HTTPS** (via proxy eller loadbalancer), fx `beslutningslog.kommune.dk` | Login kræver HTTPS                                       |
 | **Udgående HTTPS** fra serveren til `login.microsoftonline.com`                               | Serveren skal kunne tale med Microsoft                   |
-| En afklaring af databehandleraftale, konsekvensanalyse og sikkerhedsgodkendelse               | Programmet gemmer faglige beslutninger om mødetyper      |
+| En afklaring af databehandleraftale, konsekvensanalyse og sikkerhedsgodkendelse               | Programmet gemmer faglige beslutninger om mødetyper og medarbejdernes navne (se [Data i appen](data-i-appen.md))      |
 
 > **Menunavne.** Entra ændrer ind imellem navne og sprog. De engelske navne er: _App registrations_, _New registration_, _Certificates & secrets_, _App roles_, _Enterprise applications_, _Conditional Access_ og _Assignment required_.
 

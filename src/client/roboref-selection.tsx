@@ -205,7 +205,8 @@ export default function RoborefSelection({
         <p className="micro">
           Den valgte historiske posts felter hentes samlet. Hvert valg oprettes som kladde; formål,
           begrundelser og ibrugtagning står som ikke oplyst, og ansvarlig sættes til den lokale
-          bruger. Historiske poster og navngivne versioner er ikke nødvendigvis det samme.
+          bruger. Historiske poster og navngivne versioner er ikke nødvendigvis det samme. Tjek, at
+          felterne (fx eksempler) ikke indeholder oplysninger om borgere, før du opretter dem.
         </p>
         <button className="button secondary" disabled={busy} onClick={() => void load()}>
           {busy ? 'Arbejder…' : 'Hent oversigt fra Roboref'}

@@ -50,6 +50,7 @@ Før du siger, at noget virker: kør `npm test`, `npm run typecheck`, `npm run l
 - **`public/client.js`, `public/app.css` og `public/THIRD-PARTY-LICENSES.txt` er genererede.** Ret aldrig i dem i hånden. Ændrer du `src/client/` eller `src/shared/`, så kør `npm run build:local-client` og commit resultatet; CI fejler ellers.
 - Formatering er Prettier (`npm run format`); markdown formateres ikke automatisk.
 - Brugerrettede tekster på dansk. Nye indstillinger: validér i `config.mjs`, test, og dokumentér i `.env.example` og `docs/konfiguration.md`.
+- **Nye tabeller eller felter med personoplysninger** skal beskrives i `docs/data-i-appen.md` (en test kontrollerer, at hver tabel står der). Læg aldrig oplysninger om borgere i tests, eksempler eller dokumentation.
 - Test mod **rigtig SQLite** i midlertidige mapper, ikke mocks af databasen. Navngiv tests efter den adfærd, de beskytter. Hver fejlrettelse får en test, der fejler uden rettelsen.
 - Indgange (startfil, npm-scripts, filer nævnt i README/AGENTS.md) testes af `tests/entrypoints.test.mjs`: ret stier begge steder, når du flytter filer.
 

@@ -9,6 +9,7 @@ Alle væsentlige ændringer noteres her. Formatet følger [Keep a Changelog](htt
 - **Valgfrit login med Microsoft Entra ID** (OpenID Connect) til drift på en server: roller (Læser, Redaktør, Godkender, Administrator), krav om to-faktor og en trin-for-trin-guide til kommunens IT ([docs/login-entra-id.md](docs/login-entra-id.md)). Uden login (standard) er alt uændret.
 - Rettigheder håndhæves på serveren; hver hændelse i loggen markerer, om identiteten var bekræftet af login. Gamle hændelser markeres som ikke verificerede.
 - Valgfrit **firøjneprincip** (`ROBOREF_REQUIRE_FOUR_EYES`): den, der uploadede en version, kan ikke selv godkende den.
+- **Advarsel mod oplysninger om borgere** i uploadvinduet og ved hentning fra Roboref, et afsnit i brugervejledningen og en oversigt over, hvad appen gemmer ([docs/data-i-appen.md](docs/data-i-appen.md)). En test sikrer, at oversigten følger databasens tabeller.
 - Indstillingerne `ROBOREF_AUTH_MODE`, `ROBOREF_OIDC_*`, `ROBOREF_PUBLIC_URL`, `ROBOREF_REQUIRE_MFA`, `ROBOREF_SESSION_HOURS` og `ROBOREF_HOST`.
 
 ### Bemærk

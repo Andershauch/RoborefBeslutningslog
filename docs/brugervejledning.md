@@ -16,6 +16,12 @@ Denne vejledning forklarer, hvordan du bruger Beslutningsloggen i hverdagen. Ops
 
 Intet kan slettes eller overskrives gennem appen. Det er hele pointen: historikken skal kunne stoles på.
 
+## Hvad må du lægge i appen?
+
+**Ingen oplysninger om borgere.** Appen er til at beskrive, hvordan en mødetype fungerer, ikke til konkrete sager. Læg ikke navne, cpr-numre, adresser, helbredsoplysninger eller sagsforhold i prompter, begrundelser eller eksempler. Brug opdigtede eksempler. Det gælder også eksempelfelter, du henter fra Roboref: tjek dem, før du registrerer dem.
+
+Intet kan slettes i appen, så en oplysning, der først er lagt ind, bliver liggende (også i backups og eksport). Opdager du en fejl, så stop og kontakt jeres IT. Se [Data i appen](data-i-appen.md) for, hvad appen gemmer.
+
 ## Registrér en prompt første gang
 
 1. Vælg at uploade en prompt, og vælg en Markdown-fil (maks. 200 kB, UTF-8). Du kan også starte med den medfølgende eksempelprompt.

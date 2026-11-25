@@ -50,6 +50,13 @@ async function loadClient() {
   };
   window.URL.createObjectURL = () => 'blob:test';
   window.URL.revokeObjectURL = () => {};
+  // jsdom mangler <dialog>-metoderne, som vinduerne i appen bruger.
+  window.HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  window.HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+  };
 
   window.eval(await (await get('/bootstrap.js')).text());
   window.eval(await (await get('/local-client.js')).text());
@@ -202,4 +209,19 @@ test('the logout button is shown only when login is active', async () => {
   await settle(window, (text) => text.includes('Mette Verificeret'));
   assert.ok(window.document.querySelector('button[aria-label="Log ud"]'));
   assert.match(window.document.body.textContent, /Logget ind med kommunal konto/);
+});
+
+test('the upload window warns against putting information about citizens in the app', async () => {
+  const {window} = await openApp();
+  await settle(window, (text) => text.includes('Eksempelprompt'));
+  const upload = [...window.document.querySelectorAll('button')].find((b) =>
+    b.textContent.includes('Upload prompt'),
+  );
+  assert.ok(upload, 'knappen til at uploade findes');
+  upload.click();
+  await settle(window, (text) => text.includes('Ingen oplysninger om borgere'));
+  const note = window.document.querySelector('[role="note"]');
+  assert.ok(note, 'advarslen er markeret som en note (tilgængelighed)');
+  assert.match(note.textContent, /cpr-numre/);
+  assert.match(note.textContent, /Intet kan slettes/);
 });

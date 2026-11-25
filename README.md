@@ -38,6 +38,7 @@ I mappen `data/` i projektmappen (databasen `beslutningslog.sqlite`). Ved hver o
 | -------------------------------------------- | ------------------------------------------------------ |
 | [Brugervejledning](docs/brugervejledning.md) | Sådan registrerer, godkender og eksporterer du         |
 | [Konfiguration](docs/konfiguration.md)       | Alle indstillinger i `.env`                            |
+| [Data i appen](docs/data-i-appen.md)         | Hvad appen gemmer, og om det er personoplysninger      |
 | [Login med Entra ID](docs/login-entra-id.md) | Til kommunens IT: login, roller og to-faktor på en server |
 | [Drift og backup](docs/drift.md)             | Opdatering, backup, kontrol af backup, fejlfinding     |
 | [Sikkerhed](SECURITY.md)                     | Sikkerhedsmodel, rapportering af sårbarheder           |

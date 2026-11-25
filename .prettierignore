@@ -1,0 +1,7 @@
+node_modules
+public/client.js
+package-lock.json
+data
+*.md
+migrations
+public/app.css

@@ -1,0 +1,32 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 4 * * 2' # hver tirsdag
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Kodeanalyse (JavaScript/TypeScript)
+    # Gratis for offentlige repoer; springes over, mens repoet er privat.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          languages: javascript-typescript
+          # Den genererede klient er allerede dækket af kilden.
+          config: |
+            paths-ignore:
+              - public/client.js
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4

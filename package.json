@@ -1,0 +1,56 @@
+{
+  "name": "roboref-beslutningslog",
+  "version": "1.0.0",
+  "description": "Lokal beslutningslog for Roboref-mødetype-prompts: versioner, begrundelser og godkendelser.",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Andershauch/RoborefBeslutningslog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Andershauch/RoborefBeslutningslog/issues"
+  },
+  "homepage": "https://github.com/Andershauch/RoborefBeslutningslog#readme",
+  "keywords": [
+    "roboref",
+    "beslutningslog",
+    "prompt",
+    "versionsstyring",
+    "sqlite"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server/server.mjs",
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-exclude=\"src/client/**\" --test-coverage-lines=88 --test-coverage-branches=90 --test-coverage-functions=88 tests/*.test.mjs",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit --incremental false",
+    "build:local-client": "node scripts/build-local-client.mjs",
+    "roboref:test": "node scripts/roboref-api-test.mjs",
+    "roboref:preview": "node --disable-warning=ExperimentalWarning scripts/roboref-preview.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "lucide-react": "^1.80.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "24.19.3",
+    "@types/react": "19.3.1",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.74.0"
+  },
+  "type": "module"
+}

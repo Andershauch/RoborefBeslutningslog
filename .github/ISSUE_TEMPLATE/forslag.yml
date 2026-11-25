@@ -1,0 +1,18 @@
+name: Forslag
+description: En idé til en forbedring
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Læg ikke API-nøgler, rigtige prompter eller persondata her.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hvilket problem vil du løse?
+      description: Beskriv behovet, før du beskriver løsningen.
+    validations:
+      required: true
+  - type: textarea
+    id: losning
+    attributes:
+      label: Hvordan forestiller du dig, at det kan løses?

@@ -1,0 +1,40 @@
+name: Fejl
+description: Noget virker ikke, som det skal
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Læg aldrig API-nøgler, `.env`, databaser, rigtige prompter eller persondata her.** Fjern dem også fra skærmbilleder og fejlbeskeder. Sikkerhedsproblemer meldes privat (se SECURITY.md).
+  - type: textarea
+    id: hvad-skete
+    attributes:
+      label: Hvad skete der?
+      description: Hvad gjorde du, hvad forventede du, og hvad skete der i stedet?
+    validations:
+      required: true
+  - type: textarea
+    id: fejltekst
+    attributes:
+      label: Fejltekst fra appen eller startvinduet
+      description: Kopiér teksten. Den indeholder aldrig din nøgle, men tjek alligevel, før du sender.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version af programmet
+      description: Står i filen package.json eller på udgivelsessiden.
+  - type: input
+    id: miljo
+    attributes:
+      label: Styresystem og Node-version
+      description: Fx "Windows 11, Node 24.19" (find den med `node --version`).
+    validations:
+      required: true
+  - type: checkboxes
+    id: tjek
+    attributes:
+      label: Tjekliste
+      options:
+        - label: Jeg har fjernet nøgler, rigtige prompter og persondata fra dette issue.
+          required: true

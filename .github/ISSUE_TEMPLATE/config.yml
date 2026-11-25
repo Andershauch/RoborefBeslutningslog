@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sikkerhedsproblem
+    url: https://github.com/Andershauch/RoborefBeslutningslog/security/advisories/new
+    about: Meld sårbarheder privat. Opret ikke et offentligt issue.

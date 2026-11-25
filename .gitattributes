@@ -1,0 +1,9 @@
+# Ensartede linjeskift på alle styresystemer: LF i arbejdskopien. Ellers laver Git på Windows
+# filerne om til CRLF ved kloning, og Prettier og kontrollen af den byggede klient fejler.
+* text=auto eol=lf
+
+# Windows' startfil skal have CRLF.
+*.cmd text eol=crlf
+
+# Bevar den medfølgende eksempelprompt bytemæssigt uændret på tværs af systemer.
+public/eksempel-prompt.md -text

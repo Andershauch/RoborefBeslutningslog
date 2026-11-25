@@ -15,7 +15,7 @@ En lokal logbog til dine mødetype-prompts i Roboref: hvilken tekst der gælder,
 
 Du skal bruge [Node.js](https://nodejs.org) **version 24 eller nyere** (LTS). Du behøver ikke kunne programmere.
 
-1. **Hent projektet.** På GitHub: **Code → Download ZIP**, og pak filen ud et sted, du kan finde igen.
+1. **Hent projektet.** Gå til [Releases](https://github.com/Andershauch/RoborefBeslutningslog/releases/latest), hent **Source code (zip)** for den nyeste udgivelse, og pak filen ud et sted, du kan finde igen.
 2. **Opret din opsætning.** Kopiér filen `.env.example` til en ny fil, der hedder `.env`, og åbn den i et tekstprogram. Udfyld:
    - `ROBOREF_API_KEY`: din personlige API-nøgle fra Roboref. Behandl den som en adgangskode.
    - `ROBOREF_BASE_URL`: adressen til din organisations Roboref-API. Den ender på `/api/v2`. Spørg din Roboref-administrator, hvis du ikke kender den.

@@ -48,6 +48,13 @@ Kør `npm test && npm run typecheck && npm run lint && npm run format:check` lok
 - **Tilføj en indstilling:** udvid `src/server/config.mjs` med validering og test, tilføj den til `.env.example` og [Konfiguration](konfiguration.md).
 - **Opdater afhængigheder:** Dependabot sender ugentlige PR'er. `react`, `react-dom` og typerne skal opdateres sammen (klienten pakker dem), og hver ændring skal have grøn CI. Store versionshop af `typescript`, `eslint` og `@types/node` kræver en bevidst beslutning og er slået fra.
 
+## For vedligeholdere: e-mailadresser i historikken
+
+Når en pull request flettes med _squash_, opretter GitHub selv det nye commit med den flettende persons **primære e-mailadresse**. Er den privat, bliver den offentlig for evigt. Gør derfor ét af følgende, før du fletter:
+
+- Slå **Keep my email addresses private** og **Block command line pushes that expose my email** til under _Settings → Emails_ på GitHub (anbefalet), eller
+- flet fra kommandolinjen med `gh pr merge --squash --author-email <id>+<brugernavn>@users.noreply.github.com`.
+
 ## Skrivestil
 
 - Tekster, som brugeren ser, er på dansk; kode, filnavne og testnavne bruger engelsk eller dansk efter, hvad der er tydeligst, og kommentarer forklarer **hvorfor**, ikke hvad.

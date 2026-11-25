@@ -23,7 +23,7 @@ test('orders histories and renders escaped changes in the two most recent entrie
   const html = renderPreview(data, 147);
   assert.match(html, /Gammel/);
   assert.match(html, /Ny &lt;script&gt;/);
-  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /<script/i);
   assert.doesNotMatch(html, /Tidlig/);
   assert.match(html, /class="line removed"/);
   assert.match(html, /class="line added"/);
